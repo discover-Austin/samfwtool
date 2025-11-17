@@ -1,9 +1,17 @@
 """
 Samsung device-specific support
 Beyond Odin's basic flashing capabilities
+
+Author: SamFWTool Team
+License: MIT
 """
 from pathlib import Path
 from typing import Dict, List, Optional
+
+__all__ = [
+    "SamsungDevice",
+    "SamsungFirmwareParser",
+]
 
 
 class SamsungDevice:

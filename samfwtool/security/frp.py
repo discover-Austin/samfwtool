@@ -9,13 +9,26 @@ This module:
 - Identifies security misconfigurations
 - Checks for known FRP bypass methods
 - Validates Google Account bindings
+
+Author: SamFWTool Team
+License: MIT
 """
 import re
 import sqlite3
+import logging
 from pathlib import Path
 from typing import List, Dict, Optional, Set
 from dataclasses import dataclass
 from enum import Enum
+
+__all__ = [
+    "FRPStatus",
+    "FRPBypassMethod",
+    "FRPFinding",
+    "FRPAnalyzer",
+]
+
+logger = logging.getLogger(__name__)
 
 
 class FRPStatus(Enum):

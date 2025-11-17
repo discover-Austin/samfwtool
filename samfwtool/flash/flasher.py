@@ -2,14 +2,25 @@
 Device flashing implementation
 
 THIS IS THE KILLER FEATURE - Actual device flashing to replace Odin
+
+Author: SamFWTool Team
+License: MIT
 """
 import subprocess
 import time
+import logging
 from pathlib import Path
 from typing import Optional, List, Callable
 from enum import Enum
 
 from samfwtool.flash.device import Device, DeviceMode, DeviceVendor
+
+__all__ = [
+    "FlashResult",
+    "DeviceFlasher",
+]
+
+logger = logging.getLogger(__name__)
 
 
 class FlashResult(Enum):
@@ -29,9 +40,20 @@ class DeviceFlasher:
     CRITICAL FEATURE: This is what Odin does, but cross-platform and multi-vendor
     """
 
-    def __init__(self, device: Device, safety_checks: bool = True):
+    def __init__(self, device: Device, safety_checks: bool = True,
+                 confirm_callback: Optional[Callable[[str], bool]] = None):
+        """
+        Initialize device flasher
+
+        Args:
+            device: Device to flash
+            safety_checks: Enable safety confirmations
+            confirm_callback: Callback function for user confirmations (msg) -> bool
+                            If None and safety_checks=True, operations will fail
+        """
         self.device = device
         self.safety_checks = safety_checks
+        self.confirm_callback = confirm_callback
         self.progress_callback: Optional[Callable] = None
 
     def set_progress_callback(self, callback: Callable):
@@ -50,22 +72,25 @@ class DeviceFlasher:
             Flash result
         """
         if not image_path.exists():
-            print(f"❌ Image not found: {image_path}")
+            logger.error(f"Image not found: {image_path}")
             return FlashResult.INVALID_IMAGE
 
         if self.safety_checks and self.device.bootloader_locked:
-            print(f"❌ Bootloader is LOCKED. Unlock bootloader before flashing.")
+            logger.error("Bootloader is LOCKED. Unlock bootloader before flashing.")
             return FlashResult.BOOTLOADER_LOCKED
 
-        print(f"\n🔧 Flashing {partition_name} partition...")
-        print(f"   Device: {self.device.model} ({self.device.serial})")
-        print(f"   Image: {image_path}")
-        print(f"   Size: {image_path.stat().st_size:,} bytes")
+        logger.info(f"Flashing {partition_name} partition...")
+        logger.info(f"Device: {self.device.model} ({self.device.serial})")
+        logger.info(f"Image: {image_path}")
+        logger.info(f"Size: {image_path.stat().st_size:,} bytes")
 
         if self.safety_checks:
-            confirm = input(f"\n⚠️  Continue flashing {partition_name}? (yes/no): ")
-            if confirm.lower() != 'yes':
-                print("Cancelled by user")
+            if self.confirm_callback is None:
+                logger.error("Safety checks enabled but no confirmation callback provided")
+                return FlashResult.USER_CANCELLED
+
+            if not self.confirm_callback(f"Continue flashing {partition_name}?"):
+                logger.info("Cancelled by user")
                 return FlashResult.USER_CANCELLED
 
         # Flash based on device mode
@@ -95,16 +120,20 @@ class DeviceFlasher:
         Returns:
             Flash result
         """
-        print(f"\n🔥 FULL FIRMWARE FLASH")
-        print(f"   Device: {self.device.model}")
-        print(f"   Firmware: {firmware_path}")
+        logger.warning("FULL FIRMWARE FLASH")
+        logger.info(f"Device: {self.device.model}")
+        logger.info(f"Firmware: {firmware_path}")
 
         if self.safety_checks:
-            print(f"\n⚠️  WARNING: This will completely reflash your device!")
-            print(f"⚠️  All data will be lost!")
-            confirm = input(f"\nType 'I UNDERSTAND' to continue: ")
-            if confirm != 'I UNDERSTAND':
-                print("Cancelled")
+            logger.warning("WARNING: This will completely reflash your device!")
+            logger.warning("All data will be lost!")
+
+            if self.confirm_callback is None:
+                logger.error("Safety checks enabled but no confirmation callback provided")
+                return FlashResult.USER_CANCELLED
+
+            if not self.confirm_callback("Type 'I UNDERSTAND' to continue (exact text required)"):
+                logger.info("Cancelled")
                 return FlashResult.USER_CANCELLED
 
         # Extract and flash based on vendor

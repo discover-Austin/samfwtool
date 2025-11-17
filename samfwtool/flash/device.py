@@ -1,11 +1,24 @@
 """
 Device detection and management
+
+Author: SamFWTool Team
+License: MIT
 """
 import subprocess
+import logging
 from pathlib import Path
 from typing import List, Optional, Dict
 from dataclasses import dataclass
 from enum import Enum
+
+__all__ = [
+    "DeviceMode",
+    "DeviceVendor",
+    "Device",
+    "DeviceDetector",
+]
+
+logger = logging.getLogger(__name__)
 
 
 class DeviceMode(Enum):

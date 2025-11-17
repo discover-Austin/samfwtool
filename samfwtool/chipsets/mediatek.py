@@ -3,12 +3,26 @@ MediaTek (MTK) chipset support
 Provides SP Flash Tool equivalent functionality
 
 This surpasses SP Flash Tool by being cross-platform and integrated
+
+Author: SamFWTool Team
+License: MIT
 """
 import struct
+import logging
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Callable
 from dataclasses import dataclass
 from enum import Enum
+
+__all__ = [
+    "MTKFlashMode",
+    "MTKPartition",
+    "ScatterFileParser",
+    "MTKFlasher",
+    "MTKChipDetector",
+]
+
+logger = logging.getLogger(__name__)
 
 
 class MTKFlashMode(Enum):
@@ -179,9 +193,19 @@ class MTKFlasher:
     - Python API
     """
 
-    def __init__(self, scatter_file: Path, firmware_dir: Path):
+    def __init__(self, scatter_file: Path, firmware_dir: Path,
+                 confirm_callback: Optional[Callable[[str], bool]] = None):
+        """
+        Initialize MTK flasher
+
+        Args:
+            scatter_file: Path to scatter file
+            firmware_dir: Directory containing firmware files
+            confirm_callback: Optional callback for user confirmations (msg) -> bool
+        """
         self.scatter_file = scatter_file
         self.firmware_dir = firmware_dir
+        self.confirm_callback = confirm_callback
         self.parser = ScatterFileParser(scatter_file)
         self.partitions = []
 
@@ -218,19 +242,21 @@ class MTKFlasher:
         NOTE: This is a framework - actual USB communication with MTK preloader
         would require pyusb and MTK-specific protocol implementation
         """
-        print(f"\n🔥 MediaTek Flash Operation")
-        print(f"   Mode: {mode.value}")
-        print(f"   Port: {port}")
+        logger.info("MediaTek Flash Operation")
+        logger.info(f"Mode: {mode.value}")
+        logger.info(f"Port: {port}")
 
-        print("\n⚠️  MTK flashing requires:")
-        print("  1. Device in MTK Download Mode (preloader)")
-        print("  2. MTK USB drivers installed")
-        print("  3. Device connected to specified port")
+        logger.warning("MTK flashing requires:")
+        logger.warning("1. Device in MTK Download Mode (preloader)")
+        logger.warning("2. MTK USB drivers installed")
+        logger.warning("3. Device connected to specified port")
 
-        confirm = input("\nContinue? (yes/no): ")
-        if confirm.lower() != 'yes':
-            print("Cancelled by user")
-            return False
+        if self.confirm_callback is not None:
+            if not self.confirm_callback("Continue with MTK flash operation?"):
+                logger.info("Cancelled by user")
+                return False
+        else:
+            logger.warning("No confirmation callback provided, proceeding without confirmation")
 
         # This is where actual MTK protocol communication would happen
         # For now, we provide the framework

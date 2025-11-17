@@ -7,13 +7,27 @@ This SURPASSES QFIL by being:
 - Integrated with analysis tools
 - Better safety checks
 - Python API for automation
+
+Author: SamFWTool Team
+License: MIT
 """
 import struct
 import time
+import logging
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Callable
 from dataclasses import dataclass
 from enum import Enum
+
+__all__ = [
+    "QualcommChipset",
+    "EDLMode",
+    "QualcommPartition",
+    "EDLFlasher",
+    "QualcommChipDetector",
+]
+
+logger = logging.getLogger(__name__)
 
 
 class QualcommChipset(Enum):
@@ -58,10 +72,19 @@ class EDLFlasher:
     - No leaked binaries
     """
 
-    def __init__(self, port: str = '/dev/ttyUSB0'):
+    def __init__(self, port: str = '/dev/ttyUSB0',
+                 confirm_callback: Optional[Callable[[str], bool]] = None):
+        """
+        Initialize EDL flasher
+
+        Args:
+            port: Serial port for EDL communication
+            confirm_callback: Optional callback for user confirmations (msg) -> bool
+        """
         self.port = port
         self.mode = EDLMode.UNKNOWN
         self.device_info = {}
+        self.confirm_callback = confirm_callback
 
     def detect_edl_device(self) -> bool:
         """
@@ -182,16 +205,19 @@ class EDLFlasher:
             return False
 
         # Safety check
-        print(f"\n⚠️  WARNING: EDL flashing will completely overwrite device!")
-        print(f"⚠️  This operation:")
-        print(f"  - Will erase ALL data")
-        print(f"  - Cannot be undone")
-        print(f"  - May brick device if interrupted")
-        print(f"  - Requires matching firmware for your device")
+        logger.warning("WARNING: EDL flashing will completely overwrite device!")
+        logger.warning("This operation:")
+        logger.warning("- Will erase ALL data")
+        logger.warning("- Cannot be undone")
+        logger.warning("- May brick device if interrupted")
+        logger.warning("- Requires matching firmware for your device")
 
-        confirm = input("\nType 'I UNDERSTAND THE RISKS' to continue: ")
-        if confirm != 'I UNDERSTAND THE RISKS':
-            print("Cancelled by user")
+        if self.confirm_callback is not None:
+            if not self.confirm_callback("Type 'I UNDERSTAND THE RISKS' to continue (exact text required)"):
+                logger.info("Cancelled by user")
+                return False
+        else:
+            logger.error("No confirmation callback provided - cannot proceed with dangerous operation")
             return False
 
         # Framework for actual EDL flashing
