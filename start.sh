@@ -2,15 +2,43 @@
 # SamFWTool - ONE CLICK START (GUI)
 cd "$(dirname "$0")"
 
-# Auto-install dependencies silently
-pip install -q click tqdm lz4 python-magic 2>/dev/null || pip install click tqdm lz4 python-magic 2>/dev/null
+# Find Python with tkinter
+PYTHON=""
+for p in python3.12 python3.11 python3.10 python3; do
+    if command -v $p &>/dev/null && $p -c "import tkinter" 2>/dev/null; then
+        PYTHON=$p
+        break
+    fi
+done
 
-# Install tkinter if missing (Linux)
-if [ "$(uname)" == "Linux" ] && ! python3 -c "import tkinter" 2>/dev/null; then
-    echo "Installing GUI dependencies..."
-    sudo apt-get install -y python3-tk 2>/dev/null || true
+# Fallback: try system pythons
+if [ -z "$PYTHON" ]; then
+    for p in /usr/bin/python3.12 /usr/bin/python3.11 /usr/bin/python3; do
+        if [ -x "$p" ] && $p -c "import tkinter" 2>/dev/null; then
+            PYTHON=$p
+            break
+        fi
+    done
 fi
 
-# Run GUI
+if [ -z "$PYTHON" ]; then
+    echo "ERROR: No Python with tkinter found."
+    echo "Install with: sudo apt-get install python3-tk"
+    exit 1
+fi
+
+# Install all dependencies
+DEPS="click tqdm lz4 python-magic rich"
+$PYTHON -m pip install -q $DEPS --break-system-packages 2>/dev/null || \
+$PYTHON -m pip install -q $DEPS 2>/dev/null || true
+
 export PYTHONPATH="${PWD}:${PYTHONPATH}"
-python3 -m samfwtool.gui.main_gui "$@"
+
+# Check if display is available
+if [ -z "$DISPLAY" ] && [ "$(uname)" = "Linux" ]; then
+    echo "No display found - running CLI instead"
+    echo ""
+    $PYTHON -m samfwtool.cli.main "$@"
+else
+    $PYTHON -m samfwtool.gui.main_gui "$@"
+fi
