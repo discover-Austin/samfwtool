@@ -81,7 +81,7 @@ jobs:
         bandit -r samfwtool -f json -o bandit-report.json || true
 
     - name: Upload security report
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v6
       with:
         name: security-report
         path: bandit-report.json
@@ -111,7 +111,7 @@ jobs:
         twine check dist/*
 
     - name: Upload artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v6
       with:
         name: dist
         path: dist/
